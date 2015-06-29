@@ -22,16 +22,11 @@
 using namespace cv;
 using namespace std;
 
+const int M = 20;//撮る回数
 
 int main(int argc, char *argv[]){
-
-	//ファイル名を入力
-	string str;
-	cin >> str;
-	cout << str << endl; 
-	string name;
 	// 変数宣言
-	Mat im(640,480,1);
+	Mat im(640, 480, 1);
 	Mat imc(640, 480, 1);
 	// カメラのキャプチャ
 	VideoCapture cap(0);
@@ -39,11 +34,18 @@ int main(int argc, char *argv[]){
 	if (!cap.isOpened()) return -1;
 	cap >> imc;
 	imshow("Camera", imc);
-	for (int i = 0;i<10;i++) {
+	//ファイル名を入力
+	string str;
+	cin >> str;
+	cout << str << endl; 
+	string name;
+
+	
+	for (int i = 0;i<M;i++) {
 		// カメラ映像の取得
 		cap >> im;
 	//	保存
-		name = str + to_string(i);
+		name = str+"_"+ to_string(i);
 		imwrite("data/" + name +".jpg", im);
 		cout << i << endl;
 		//少し待つ

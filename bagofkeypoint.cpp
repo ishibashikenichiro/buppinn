@@ -153,7 +153,7 @@ int main(int argc, char *argv[]){
 	}
 
 
-	// IMAGE_DIRの各画像から局所特徴量を抽出
+	// dataの各画像から局所特徴量を抽出
 	cout << "Load Descriptors ..." << endl;
 	Mat featureVectors = (Mat_<float>(1, DIM));
 	cout << featureVectors.rows << "\n";
@@ -171,6 +171,12 @@ int main(int argc, char *argv[]){
 	// 各クラスターの中心ベクトル、centroidsがそれぞれVisual Wordsになる
 	cout << "Calc Histograms ..." << endl;
 	calcHistograms(centroids, file_list);
+
+	//Matをxmlファイルに書き出し
+	FileStorage cvfs("test.xml", CV_STORAGE_WRITE);
+	write(cvfs, "featureVectors", featureVectors);
+	FileStorage cvfs2("centroids.xml", CV_STORAGE_WRITE);
+	write(cvfs2, "centroids", centroids);
 	
 
 	return 0;

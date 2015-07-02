@@ -25,7 +25,7 @@ using namespace cv;
 using namespace std;
 const int DIM = 128;
 const int SURF_PARAM = 400;
-const int MAX_CLUSTER = 100;//kの数
+const int MAX_CLUSTER = 500;//kの数
 
 int surf(Mat img, Mat &imgs){
 	//SURF
@@ -90,7 +90,7 @@ int compareHistograms(Mat imgch, Mat& visualWords,vector<double> &values) {
 	}
 	int maxResults = 1;
 	float r = 1.0f;
-	for (int i = 0; i < descriptors.rows; i++){
+	for (long i = 0; i < descriptors.rows; i++){//int →　longに
 		Mat indices = (Mat_<int>(1, 1)); // dataの何行目か
 		Mat dists = (Mat_<float>(1, 1)); // それぞれどれだけの距離だったか
 		Mat query = (Mat_<float>(1, descriptors.cols));
@@ -115,13 +115,14 @@ int compareHistograms(Mat imgch, Mat& visualWords,vector<double> &values) {
 }
 
 void compare(vector<double> values2){
-	ifstream file("histogram.txt");//ヒストグラムを読み込む
+	ifstream file("histograms.txt");//ヒストグラムを読み込む
 	ofstream result("result.txt");
+	ofstream bihin("bihin.txt");
 	vector<vector<string> > values;//ヒストグラム格納
 
 	double sum[1000];
 	double w = 0, x = 0, y = 0, z = 0;
-	string str, str2;
+	string str, str2,str3;
 	int p;
 
 	if (file.fail()){
@@ -181,6 +182,11 @@ void compare(vector<double> values2){
 	for (int k = 0; k < values.size(); k++){
 		result << pairs[k].first << "\t" << pairs[k].second << endl;
 	}
+	str3 = pairs[0].second;
+	int a = str3.find("_");
+	vector<string> inner2;
+	inner2.push_back(str3.substr(0, a));
+	bihin << inner2[0] << endl;
 	return;
 }
 
@@ -188,8 +194,8 @@ int main(int argc, char *argv[]){
 	initModule_nonfree();
 
 	// 変数宣言
-	Mat im;
-	Mat imc;
+	Mat im(640,480,1);
+	Mat imc(640, 480, 1);
 	//	int flag = 0;
 		// カメラのキャプチャ
 		VideoCapture cap(0);
@@ -205,26 +211,28 @@ int main(int argc, char *argv[]){
 			// sキー入力があればキャプチャ
 			if (waitKey(30) == 's'){
 				cap >> imc;
+				imwrite("test.jpg", imc);
 				break;
 				//			flag = 1;
 			}
 
 		}
-		// IMAGE_DIRの各画像から局所特徴量を抽出
 		cout << "Load Descriptors ..." << endl;
-		Mat featureVectors = (Mat_<float>(1, DIM));
-		//特徴ベクトルを取り出し、学習用DBを作る
-		int ld = loadDescriptors(imc, featureVectors);
+		//学習済みVWを読み込み
+		Mat centroids;
+		FileStorage cvfs("centroids.xml", CV_STORAGE_READ);
+		FileNode node(cvfs.fs, NULL);
+		read(node["centroids"], centroids);
 		// 局所特徴量をクラスタリングして各クラスタのセントロイドを計算
 		cout << "Clustering ..." << endl;
-		Mat labels(featureVectors.rows, 1, CV_64F);        // 各サンプル点が割り当てられたクラスタのラベル
+	//	Mat labels(featureVectors.rows, 1, CV_64F);        // 各サンプル点が割り当てられたクラスタのラベル
 		//Mat centroids(MAX_CLUSTER, DIM, CV_64F);  // 各クラスタの中心（セントロイド） DIM次元ベクトル
-		Mat centroids = Mat_<float>(MAX_CLUSTER, DIM);
-		kmeans(featureVectors, MAX_CLUSTER, labels, cvTermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 10, 1.0), 1, KMEANS_PP_CENTERS, centroids);
+	//	Mat centroids = Mat_<float>(MAX_CLUSTER, DIM);
+	//	kmeans(featureVectors, MAX_CLUSTER, labels, cvTermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 10, 1.0), 1, KMEANS_PP_CENTERS, centroids);
 
 		// 各画像をVisual Wordsのヒストグラムに変換する
 		// 各クラスターの中心ベクトル、centroidsがそれぞれVisual Wordsになる
-		vector<double> values2(1000);//比較用ヒストグラム格納
+		vector<double> values2(10000);//比較用ヒストグラム格納
 		cout << "Calc Histograms ..." << endl;
 		compareHistograms(imc, centroids, values2);
 

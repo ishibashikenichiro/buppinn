@@ -95,7 +95,7 @@ int calcHistograms(Mat& visualWords, vector<string> file_list) {
 
 
 		// ヒストグラムを初期化
-		int* histogram = new int[visualWords.rows];
+		float* histogram = new float[visualWords.rows];
 
 		for (int i = 0; i < visualWords.rows; i++) {
 			histogram[i] = 0;
@@ -109,7 +109,7 @@ int calcHistograms(Mat& visualWords, vector<string> file_list) {
 		}
 		int maxResults = 1;
 		float r = 1.0f;
-		for (int i = 0; i < descriptors.rows; i++){
+		for (long i = 0; i < descriptors.rows; i++){
 			Mat indices = (Mat_<int>(1, 1)); // dataの何行目か
 			Mat dists = (Mat_<float>(1, 1)); // それぞれどれだけの距離だったか
 			Mat query = (Mat_<float>(1, descriptors.cols));
@@ -137,21 +137,84 @@ int calcHistograms(Mat& visualWords, vector<string> file_list) {
 
 	return 0;
 }
+int classHistograms(Mat& visualWords, Mat hclass, string classl) {
+	flann::Index idx(visualWords, flann::KDTreeIndexParams(4), cvflann::FLANN_DIST_L2);
 
+	// 各画像のヒストグラムを出力するファイルを開く
+	fstream fout;
+	fout.open("histograms.txt", ios::app);
+	if (!fout.is_open()) {
+		cerr << "cannot open file: histograms.txt" << endl;
+		return 1;
+	}
+
+
+
+		// ヒストグラムを初期化
+		float* histogram = new float[visualWords.rows];
+
+		for (int i = 0; i < visualWords.rows; i++) {
+			histogram[i] = 0;
+		}
+
+		Mat descriptors;
+		descriptors = hclass;
+		int maxResults = 1;
+		float r = 1.0f;
+		for (long i = 0; i < descriptors.rows; i++){
+			Mat indices = (Mat_<int>(1, 1)); // dataの何行目か
+			Mat dists = (Mat_<float>(1, 1)); // それぞれどれだけの距離だったか
+			Mat query = (Mat_<float>(1, descriptors.cols));
+			//descriptors.col(i).isContinuous()がfalseなので新しく行列queryを作る
+			for (int m = 0; m < descriptors.cols; m++){
+				query.at<float>(0, m) = descriptors.at<float>(i, m);
+			}
+			idx.radiusSearch(query, indices, dists, r, maxResults);
+			histogram[indices.at<int>(0, 0)] += 1;
+		}
+
+		// ヒストグラムをファイルに出力
+		if (0 != descriptors.rows){
+			fout << classl << "\t";
+			for (int i = 0; i < visualWords.rows; i++) {
+				fout << float(histogram[i]) / float(descriptors.rows) << "\t";
+			}
+			fout << endl;
+		}
+		// 後始末
+		delete[] histogram;
+
+
+	fout.close();
+
+	return 0;
+}
 int main(int argc, char *argv[]){
 	initModule_nonfree();
 	vector<string> file_list;
 
 	// \dataの中のファイル名を取得する
-	for (tr2::sys::directory_iterator it("\data."), end; it != end; ++it) {
-		file_list.push_back(it->path());
+	for (tr2::sys::directory_iterator it("./data"), end; it != end; ++it) {
+
+			file_list.push_back(it->path());
+
 	}
 
 	// 取得したファイル名をすべて表示する
 	for (auto &path : file_list) {
 		cout << path << endl;
 	}
-
+	
+	ifstream filec("class.txt");//classを読み込む
+	if (filec.fail()){
+		cerr << "failed." << endl;
+		exit(0);
+	}
+	string strc;
+	vector<string> class_list;
+	while (getline(filec, strc)){
+		class_list.push_back(strc);//class_listにclass名を格納
+	}
 
 	// dataの各画像から局所特徴量を抽出
 	cout << "Load Descriptors ..." << endl;
@@ -170,8 +233,20 @@ int main(int argc, char *argv[]){
 	// 各画像をVisual Wordsのヒストグラムに変換する
 	// 各クラスターの中心ベクトル、centroidsがそれぞれVisual Wordsになる
 	cout << "Calc Histograms ..." << endl;
-	calcHistograms(centroids, file_list);
-
+	for (int i = 0; i < class_list.size(); i++){
+		cout << class_list[i] << endl;
+		vector<string> new_list;
+		for (auto &path : file_list) {
+			int loc = path.find(class_list[i], 0);
+			if (loc != string::npos)
+				new_list.push_back(path);
+		}
+		Mat classVectors = (Mat_<float>(1, DIM));
+		int retc = loadDescriptors(classVectors, new_list);
+		classHistograms(centroids, classVectors, class_list[i]);
+		vector<string>().swap(new_list);//メモリ解放
+		classVectors.release();
+	}
 	//Matをxmlファイルに書き出し
 	FileStorage cvfs("test.xml", CV_STORAGE_WRITE);
 	write(cvfs, "featureVectors", featureVectors);
